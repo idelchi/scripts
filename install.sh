@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-OWNER=${OWNER:-"idelchi"}
-TOOL=${TOOL:-"example"}
+TOOL=${INSTALLER_TOOL:-"example"}
+OWNER=${INSTALLER_OWNER:-"idelchi"}
 PREFIX=$(printf "%s" "${TOOL}" | tr 'a-z' 'A-Z' | tr -c 'A-Z' '_')
 
 # Allow setting via environment variables, will be overridden by flags
