@@ -1,18 +1,23 @@
 #!/bin/sh
 set -e
 
+# Arguments passed by calling script
 TOOL=${INSTALLER_TOOL:-"example"}
 OWNER=${INSTALLER_OWNER:-"idelchi"}
+VERSION=${INSTALLER_VERSION}
 PREFIX=$(printf "%s" "${TOOL}" | tr 'a-z' 'A-Z' | tr -c 'A-Z' '_')
 
 # Allow setting via environment variables, will be overridden by flags
 eval BINARY=\${${PREFIX}_BINARY:-\"${TOOL}\"}
-eval VERSION=\${${PREFIX}_VERSION:-\"v0.1\"}
+eval VERSION=\${${PREFIX}_VERSION:-\"${VERSION}\"}
 eval OUTPUT_DIR=\${${PREFIX}_OUTPUT_DIR:-\"./bin\"}
 eval DEBUG=\${${PREFIX}_DEBUG:-0}
 eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
-eval ARCH=\${${PREFIX}_ARCH:-\"\"}
-eval OS=\${${PREFIX}_OS:-\"\"}
+eval ARCH=\${${PREFIX}_ARCH}
+eval OS=\${${PREFIX}_OS}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-0}
+
+# DISABLE_SSL=${GODYL_DISABLE_SSL}
 
 # Output formatting
 format_message() {
@@ -70,7 +75,7 @@ usage() {
 Usage: ${0} [OPTIONS]
 Installs '${BINARY}' binary by downloading from GitHub releases.
 
-Flags and environment variables:
+Options:
 EOF
 
     # Print header with printf
@@ -82,19 +87,21 @@ EOF
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-b" "${PREFIX}_BINARY" "\"${BINARY}\"" "Binary name to install"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-v" "${PREFIX}_VERSION" "\"${VERSION}\"" "Version to install"
-    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-d" "${PREFIX}_OUTPUT_DIR" "\"${OUTPUT_DIR}\"" "Output directory"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-o" "${PREFIX}_OS" "<detected>" "Override operating system"
+        "-v" "${PREFIX}_VERSION" "<detected>" "Version to install"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-a" "${PREFIX}_ARCH" "<detected>" "Override architecture"
+        "-o" "${PREFIX}_OS" "<detected>" "Operating system"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-x" "${PREFIX}_DEBUG" "" "Enable debug output"
+        "-a" "${PREFIX}_ARCH" "<detected>" "Architecture"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-n" "${PREFIX}_DRY_RUN" "" "Dry run mode"
+        "-x" "${PREFIX}_DEBUG" "false" "Enable debug output"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-h" "" "" "Show this help message"
+        "-n" "${PREFIX}_DRY_RUN" "false" "Dry run mode"
+    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
+        "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
+    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
+        "-h" "" "false" "Show this help message"
 
     cat <<EOF
 
@@ -106,9 +113,16 @@ Example:
 Set \`-a\` or \`${PREFIX}_ARCH\` to download a specific architecture binary.
 This can be useful for edge-cases such as running a 32-bit userland on a 64-bit system.
 
+Version will be retrieved from the latest release if not specified.
 EOF
     exit 1
 }
+
+# Get the latest release tag
+get_latest_release() {
+    curl -s --location https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest | jq -r '.tag_name'
+}
+
 # Detect architecture with userland check
 detect_arch() {
     local arch machine_arch
@@ -208,6 +222,7 @@ parse_args() {
             o) OS="${OPTARG}" ;;
             x) DEBUG=1 ;;
             n) DRY_RUN=1 ;;
+            k) DISABLE_SSL=1 ;;
             h) usage ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
             *) warning "Invalid option: -${OPTARG}"; usage ;;
@@ -226,9 +241,6 @@ install() {
     BINARY_NAME="${BINARY}_${OS}_${ARCH}.${FORMAT}"
     URL="${BASE_URL}/${VERSION}/${BINARY_NAME}"
 
-    # Create output directory if it doesn't exist
-    mkdir -p "${OUTPUT_DIR}"
-
     success "Selecting '${VERSION}': '${BINARY_NAME}'"
     debug "Starting download process..."
 
@@ -238,13 +250,16 @@ install() {
         exit 0
     fi
 
+    # Create output directory if it doesn't exist
+    mkdir -p "${OUTPUT_DIR}"
+
     tmp=$(mktemp)
     trap 'rm -f "${tmp}"' EXIT
 
     # Download and extract/install
     success "Downloading '${BINARY_NAME}' from '${URL}'"
 
-    code=$(curl -s -w '%{http_code}' -L -o "${tmp}" "${URL}")
+    code=$(curl ${DISABLE_SSL:+-k} -s -w '%{http_code}' -L -o "${tmp}" "${URL}")
 
     if [ "${code}" != "200" ]; then
         warning "Failed to download ${URL}: ${code}"
@@ -282,6 +297,11 @@ check_default() {
     if [ "${TOOL}" = "example" ]; then
         warning "Please set the TOOL environment variable to the desired tool name"
         exit 1
+    fi
+
+    # If `VERSION` is not set, get the latest release
+    if [ -z "${VERSION}" ]; then
+        VERSION=$(get_latest_release)
     fi
 }
 
