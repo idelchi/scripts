@@ -3,6 +3,7 @@ set -e
 
 TOOL=${INSTALLER_TOOL:-"example"}
 OWNER=${INSTALLER_OWNER:-"idelchi"}
+VERSION=${INSTALLER_VERSION:-"v0.1"}
 PREFIX=$(printf "%s" "${TOOL}" | tr 'a-z' 'A-Z' | tr -c 'A-Z' '_')
 
 # Allow setting via environment variables, will be overridden by flags
