@@ -290,12 +290,17 @@ check_requirements() {
     for cmd in $REQUIRED_COMMANDS; do
         need_cmd "$cmd"
     done
+
+    # If `VERSION` is not set, check also for `jq`
+    if [ -z "${VERSION}" ]; then
+        need_cmd jq
+    fi
 }
 
 check_default() {
     # If `TOOL` is example, exit with an error
     if [ "${TOOL}" = "example" ]; then
-        warning "Please set the TOOL environment variable to the desired tool name"
+        warning "Please set the INSTALLER_TOOL environment variable to the desired tool name"
         exit 1
     fi
 
@@ -309,11 +314,11 @@ main() {
     # Parse arguments
     parse_args "$@"
 
-    # Check for default values
-    check_default
-
     # Check for required commands
     check_requirements
+
+    # Check for default values
+    check_default
 
     # Only detect OS if not manually specified
     [ -z "${OS}" ] && detect_os
