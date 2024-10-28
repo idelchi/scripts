@@ -290,6 +290,11 @@ check_requirements() {
     for cmd in $REQUIRED_COMMANDS; do
         need_cmd "$cmd"
     done
+
+    # If `VERSION` is not set, check also for `jq`
+    if [ -z "${VERSION}" ]; then
+        need_cmd jq
+    fi
 }
 
 check_default() {
