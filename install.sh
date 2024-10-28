@@ -99,7 +99,7 @@ EOF
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-n" "${PREFIX}_DRY_RUN" "false" "Dry run mode"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-n" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
+        "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
