@@ -13,8 +13,11 @@ eval VERSION=\${${PREFIX}_VERSION:-\"${VERSION}\"}
 eval OUTPUT_DIR=\${${PREFIX}_OUTPUT_DIR:-\"./bin\"}
 eval DEBUG=\${${PREFIX}_DEBUG:-0}
 eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
-eval ARCH=\${${PREFIX}_ARCH:-\"\"}
-eval OS=\${${PREFIX}_OS:-\"\"}
+eval ARCH=\${${PREFIX}_ARCH}
+eval OS=\${${PREFIX}_OS}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-0}
+
+# DISABLE_SSL=${GODYL_DISABLE_SSL}
 
 # Output formatting
 format_message() {
@@ -92,11 +95,13 @@ EOF
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-a" "${PREFIX}_ARCH" "<detected>" "Architecture"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-x" "${PREFIX}_DEBUG" "" "Enable debug output"
+        "-x" "${PREFIX}_DEBUG" "false" "Enable debug output"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-n" "${PREFIX}_DRY_RUN" "" "Dry run mode"
+        "-n" "${PREFIX}_DRY_RUN" "false" "Dry run mode"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-h" "" "" "Show this help message"
+        "-n" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
+    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
+        "-h" "" "false" "Show this help message"
 
     cat <<EOF
 
@@ -115,7 +120,7 @@ EOF
 
 # Get the latest release tag
 get_latest_release() {
-    curl https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest | jq -r '.tag_name'
+    curl -s --location https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest | jq -r '.tag_name'
 }
 
 # Detect architecture with userland check
@@ -217,6 +222,7 @@ parse_args() {
             o) OS="${OPTARG}" ;;
             x) DEBUG=1 ;;
             n) DRY_RUN=1 ;;
+            k) DISABLE_SSL=1 ;;
             h) usage ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
             *) warning "Invalid option: -${OPTARG}"; usage ;;
@@ -235,9 +241,6 @@ install() {
     BINARY_NAME="${BINARY}_${OS}_${ARCH}.${FORMAT}"
     URL="${BASE_URL}/${VERSION}/${BINARY_NAME}"
 
-    # Create output directory if it doesn't exist
-    mkdir -p "${OUTPUT_DIR}"
-
     success "Selecting '${VERSION}': '${BINARY_NAME}'"
     debug "Starting download process..."
 
@@ -247,13 +250,16 @@ install() {
         exit 0
     fi
 
+    # Create output directory if it doesn't exist
+    mkdir -p "${OUTPUT_DIR}"
+
     tmp=$(mktemp)
     trap 'rm -f "${tmp}"' EXIT
 
     # Download and extract/install
     success "Downloading '${BINARY_NAME}' from '${URL}'"
 
-    code=$(curl -s -w '%{http_code}' -L -o "${tmp}" "${URL}")
+    code=$(curl ${DISABLE_SSL:+-k} -s -w '%{http_code}' -L -o "${tmp}" "${URL}")
 
     if [ "${code}" != "200" ]; then
         warning "Failed to download ${URL}: ${code}"
