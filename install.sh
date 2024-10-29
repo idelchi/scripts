@@ -16,8 +16,7 @@ eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
 eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-0}
-
-# DISABLE_SSL=${GODYL_DISABLE_SSL}
+eval TOKEN=\${${PREFIX}_GITHUB_TOKEN}
 
 # Output formatting
 format_message() {
@@ -94,6 +93,8 @@ options() {
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
+        "-t" "${PREFIX}_GITHUB_TOKEN" "" "GitHub token for API calls"
+    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
     cat <<EOF
@@ -160,10 +161,18 @@ get_latest_release() {
 
     jq_url=$(get_jq)
 
+    # Check if TOKEN is set. If so, add CURL_ARGS=--header "Authorization: Bearer ${TOKEN}"
+    CURL_ARGS=""
+    if [ -n "${TOKEN}" ]; then
+        CURL_ARGS="--header Authorization: Bearer ${TOKEN}"
+    fi
+
+    exit 0
+
     success $jq_url
     if [ -z "${jq_url}" ]; then
         # System jq is available
-        VERSION=$(curl -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | jq -r '.tag_name')
+        VERSION=$(curl ${CURL_ARGS} -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | jq -r '.tag_name')
     else
         warning "Required command 'jq' not found, downloading it from '${jq_url}'"
         # Need to download jq
@@ -181,7 +190,7 @@ get_latest_release() {
         fi
 
         chmod +x "${tmp}/jq"
-        VERSION=$(curl -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | "${tmp}/jq" -r '.tag_name')
+        VERSION=$(curl ${CURL_ARGS} -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | "${tmp}/jq" -r '.tag_name')
         rm -rf "${tmp}"
     fi
 
@@ -278,7 +287,7 @@ verify_platform() {
 
 # Parse arguments
 parse_args() {
-    while getopts ":b:v:d:a:o:xnkhp" opt; do
+    while getopts ":b:v:d:a:t:o:xnkhp" opt; do
         case "${opt}" in
             b) BINARY="${OPTARG}" ;;
             v) VERSION="${OPTARG}" ;;
@@ -288,6 +297,7 @@ parse_args() {
             x) DEBUG=1 ;;
             n) DRY_RUN=1 ;;
             k) DISABLE_SSL=1 ;;
+            t) TOKEN="${OPTARG}" ;;
             p) options; exit 0 ;;
             h) usage ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
