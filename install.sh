@@ -278,7 +278,7 @@ verify_platform() {
 
 # Parse arguments
 parse_args() {
-    while getopts ":b:v:d:a:o:xnkh" opt; do
+    while getopts ":b:v:d:a:o:xnkhp" opt; do
         case "${opt}" in
             b) BINARY="${OPTARG}" ;;
             v) VERSION="${OPTARG}" ;;
@@ -288,6 +288,7 @@ parse_args() {
             x) DEBUG=1 ;;
             n) DRY_RUN=1 ;;
             k) DISABLE_SSL=1 ;;
+            p) options; exit 0 ;;
             h) usage ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
             *) warning "Invalid option: -${OPTARG}"; usage ;;
