@@ -64,19 +64,12 @@ need_cmd() {
     fi
     debug "Found required command: ${1}"
 }
-usage() {
+
+options() {
     # Define column widths
     local flag_width=8
     local env_width=40
     local default_width=28
-    local desc_width=40
-
-    cat <<EOF
-Usage: ${0} [OPTIONS]
-Installs '${BINARY}' binary by downloading from GitHub releases.
-
-Options:
-EOF
 
     # Print header with printf
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
@@ -108,6 +101,7 @@ EOF
 Flags take precedence over environment variables when both are set.
 
 Example:
+
     ${PREFIX}_VERSION="v1.0" ./install.sh -o /usr/local/bin
 
 Set \`-a\` or \`${PREFIX}_ARCH\` to download a specific architecture binary.
@@ -116,7 +110,23 @@ This can be useful for edge-cases such as running a 32-bit userland on a 64-bit 
 Version will be retrieved from the latest release if not specified. This requires 'jq' to be installed.
 If not available, 'jq' will be downloaded for the current OS and architecture and removed after use.
 EOF
-    exit 1
+}
+
+usage() {
+    # Define column widths
+    local flag_width=8
+    local env_width=40
+    local default_width=28
+    local desc_width=40
+
+    cat <<EOF
+Usage: ${0} [OPTIONS]
+Installs '${BINARY}' binary by downloading from GitHub releases.
+
+Options:
+EOF
+options
+exit 1
 }
 
 # Download and setup JQ binary if not installed
