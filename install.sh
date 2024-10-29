@@ -15,7 +15,7 @@ eval DEBUG=\${${PREFIX}_DEBUG:-0}
 eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
-eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-0}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL}
 eval TOKEN=\${${PREFIX}_GITHUB_TOKEN}
 
 # Output formatting
