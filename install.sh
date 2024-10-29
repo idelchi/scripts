@@ -113,12 +113,6 @@ EOF
 }
 
 usage() {
-    # Define column widths
-    local flag_width=8
-    local env_width=40
-    local default_width=28
-    local desc_width=40
-
     cat <<EOF
 Usage: ${0} [OPTIONS]
 Installs '${BINARY}' binary by downloading from GitHub releases.
