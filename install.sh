@@ -164,22 +164,21 @@ get_latest_release() {
     # Check if TOKEN is set. If so, add CURL_ARGS=--header "Authorization: Bearer ${TOKEN}"
     CURL_ARGS=""
     if [ -n "${TOKEN}" ]; then
-        CURL_ARGS="--header Authorization: Bearer ${TOKEN}"
+        CURL_ARGS="-H 'Authorization: Bearer ${TOKEN}'"
     fi
-
-    exit 0
 
     success $jq_url
     if [ -z "${jq_url}" ]; then
         # System jq is available
-        VERSION=$(curl ${CURL_ARGS} -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | jq -r '.tag_name')
+        CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
+        VERSION=$(eval "${CURL_CMD}" | "${tmp}/jq" -r '.tag_name')
     else
         warning "Required command 'jq' not found, downloading it from '${jq_url}'"
         # Need to download jq
         tmp=$(mktemp -d)
         trap 'rm -rf "${tmp}"' EXIT
 
-        code=$(curl -s -w '%{http_code}' -L -o "${tmp}/jq" "${jq_url}")
+        code=$(curl ${DISABLE_SSL:+-k} -s -w '%{http_code}' -L -o "${tmp}/jq" "${jq_url}")
 
         if [ "${code}" != "200" ]; then
             warning "Failed to download '${jq_url}': ${code}"
@@ -188,9 +187,9 @@ get_latest_release() {
 
             exit 1
         fi
-
         chmod +x "${tmp}/jq"
-        VERSION=$(curl ${CURL_ARGS} -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | "${tmp}/jq" -r '.tag_name')
+        CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
+        VERSION=$(eval "${CURL_CMD}" | "${tmp}/jq" -r '.tag_name')
         rm -rf "${tmp}"
     fi
 
