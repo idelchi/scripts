@@ -171,7 +171,7 @@ get_latest_release() {
     if [ -z "${jq_url}" ]; then
         # System jq is available
         CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
-        VERSION=$(eval "${CURL_CMD}" | "${tmp}/jq" -r '.tag_name')
+        VERSION=$(eval "${CURL_CMD}" | jq -r '.tag_name')
     else
         warning "Required command 'jq' not found, downloading it from '${jq_url}'"
         # Need to download jq
