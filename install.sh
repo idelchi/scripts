@@ -193,6 +193,16 @@ get_latest_release() {
         rm -rf "${tmp}"
     fi
 
+    # Check ${VERSION} for null
+    if [ "${VERSION}" = "null" ]; then
+        warning "Failed to get latest version for '${TOOL}'"
+        warning "   - Is the tool name correct?"
+        warning "   - Does it have a release?"
+        warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
+
+        exit 1
+    fi
+
     success "Latest version detected as: ${VERSION}"
 }
 
