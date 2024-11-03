@@ -154,6 +154,15 @@ get_jq() {
     echo "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-${JQ_OS}-${JQ_ARCH}${JQ_EXTENSION}"
 }
 
+print_error() {
+    warning "   - Is the tool name '${TOOL}' correct?"
+    warning "   - Does it have a release?"
+    warning "   - Is the version '${VERSION}' correct?"
+    warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
+
+    exit 1
+}
+
 # Get the latest release tag
 get_latest_release() {
     local jq_url
@@ -196,11 +205,7 @@ get_latest_release() {
     # Check ${VERSION} for null
     if [ "${VERSION}" = "null" ]; then
         warning "Failed to get latest version for '${TOOL}'"
-        warning "   - Is the tool name correct?"
-        warning "   - Does it have a release?"
-        warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
-
-        exit 1
+        print_error
     fi
 
     success "Latest version detected as: ${VERSION}"
@@ -315,6 +320,18 @@ parse_args() {
     done
 }
 
+check_url() {
+    local url="${1}"
+    if curl -I --silent -f "${URL}" > /dev/null; then
+        debug "URL '${url}' is reachable"
+    else
+        warning "URL '${url}' is not reachable"
+        print_error
+
+        exit 1
+    fi
+}
+
 # Main installation function
 install() {
     local FORMAT="$1"
@@ -327,6 +344,9 @@ install() {
     URL="${BASE_URL}/${VERSION}/${BINARY_NAME}"
 
     success "Selecting '${VERSION}': '${BINARY_NAME}'"
+
+    check_url "${URL}"
+
     debug "Starting download process..."
 
     if [ "${DRY_RUN}" -eq 1 ]; then
