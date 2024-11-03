@@ -15,9 +15,8 @@ eval DEBUG=\${${PREFIX}_DEBUG:-0}
 eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
-eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-0}
-
-# DISABLE_SSL=${GODYL_DISABLE_SSL}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL}
+eval TOKEN=\${${PREFIX}_GITHUB_TOKEN}
 
 # Output formatting
 format_message() {
@@ -94,6 +93,8 @@ options() {
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
+        "-t" "${PREFIX}_GITHUB_TOKEN" "" "GitHub token for API calls"
+    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
     cat <<EOF
@@ -153,6 +154,15 @@ get_jq() {
     echo "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-${JQ_OS}-${JQ_ARCH}${JQ_EXTENSION}"
 }
 
+print_error() {
+    warning "   - Is the tool name '${TOOL}' correct?"
+    warning "   - Does it have a release?"
+    warning "   - Is the version '${VERSION}' correct?"
+    warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
+
+    exit 1
+}
+
 # Get the latest release tag
 get_latest_release() {
     local jq_url
@@ -160,17 +170,24 @@ get_latest_release() {
 
     jq_url=$(get_jq)
 
+    # Check if TOKEN is set. If so, add CURL_ARGS=--header "Authorization: Bearer ${TOKEN}"
+    CURL_ARGS=""
+    if [ -n "${TOKEN}" ]; then
+        CURL_ARGS="-H 'Authorization: Bearer ${TOKEN}'"
+    fi
+
     success $jq_url
     if [ -z "${jq_url}" ]; then
         # System jq is available
-        VERSION=$(curl -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | jq -r '.tag_name')
+        CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
+        VERSION=$(eval "${CURL_CMD}" | jq -r '.tag_name')
     else
         warning "Required command 'jq' not found, downloading it from '${jq_url}'"
         # Need to download jq
         tmp=$(mktemp -d)
         trap 'rm -rf "${tmp}"' EXIT
 
-        code=$(curl -s -w '%{http_code}' -L -o "${tmp}/jq" "${jq_url}")
+        code=$(curl ${DISABLE_SSL:+-k} -s -w '%{http_code}' -L -o "${tmp}/jq" "${jq_url}")
 
         if [ "${code}" != "200" ]; then
             warning "Failed to download '${jq_url}': ${code}"
@@ -179,10 +196,16 @@ get_latest_release() {
 
             exit 1
         fi
-
         chmod +x "${tmp}/jq"
-        VERSION=$(curl -s --location "https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest" | "${tmp}/jq" -r '.tag_name')
+        CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
+        VERSION=$(eval "${CURL_CMD}" | "${tmp}/jq" -r '.tag_name')
         rm -rf "${tmp}"
+    fi
+
+    # Check ${VERSION} for null
+    if [ "${VERSION}" = "null" ]; then
+        warning "Failed to get latest version for '${TOOL}'"
+        print_error
     fi
 
     success "Latest version detected as: ${VERSION}"
@@ -278,7 +301,7 @@ verify_platform() {
 
 # Parse arguments
 parse_args() {
-    while getopts ":b:v:d:a:o:xnkhp" opt; do
+    while getopts ":b:v:d:a:t:o:xnkhp" opt; do
         case "${opt}" in
             b) BINARY="${OPTARG}" ;;
             v) VERSION="${OPTARG}" ;;
@@ -288,12 +311,25 @@ parse_args() {
             x) DEBUG=1 ;;
             n) DRY_RUN=1 ;;
             k) DISABLE_SSL=1 ;;
+            t) TOKEN="${OPTARG}" ;;
             p) options; exit 0 ;;
             h) usage ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
             *) warning "Invalid option: -${OPTARG}"; usage ;;
         esac
     done
+}
+
+check_url() {
+    local url="${1}"
+    if curl -I --silent -f "${URL}" > /dev/null; then
+        debug "URL '${url}' is reachable"
+    else
+        warning "URL '${url}' is not reachable"
+        print_error
+
+        exit 1
+    fi
 }
 
 # Main installation function
@@ -308,6 +344,9 @@ install() {
     URL="${BASE_URL}/${VERSION}/${BINARY_NAME}"
 
     success "Selecting '${VERSION}': '${BINARY_NAME}'"
+
+    check_url "${URL}"
+
     debug "Starting download process..."
 
     if [ "${DRY_RUN}" -eq 1 ]; then
