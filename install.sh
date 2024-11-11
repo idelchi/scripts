@@ -158,6 +158,7 @@ print_error() {
     warning "   - Is the tool name '${TOOL}' correct?"
     warning "   - Does it have a release?"
     warning "   - Is the version '${VERSION}' correct?"
+    warning "   - Perhaps you reached the GitHub API rate limit? Try setting ${PREFIX}_GITHUB_TOKEN."
     warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
 
     exit 1
