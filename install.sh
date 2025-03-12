@@ -15,7 +15,7 @@ eval DEBUG=\${${PREFIX}_DEBUG:-0}
 eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
-eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-\${DISABLE_SSL}}
 eval TOKEN=\${${PREFIX}_GITHUB_TOKEN:-\${GITHUB_TOKEN}}
 
 # Output formatting
@@ -91,9 +91,9 @@ options() {
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-n" "${PREFIX}_DRY_RUN" "false" "Dry run mode"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
+        "-k" "${PREFIX}_DISABLE_SSL" "\${DISABLE_SSL}" "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-t" "${PREFIX}_GITHUB_TOKEN" "Value of GITHUB_TOKEN" "GitHub token for API calls"
+        "-t" "${PREFIX}_GITHUB_TOKEN" "\${GITHUB_TOKEN}" "GitHub token for API calls"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
