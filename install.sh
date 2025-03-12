@@ -177,7 +177,9 @@ get_latest_release() {
         CURL_ARGS="-H 'Authorization: Bearer ${TOKEN}'"
     fi
 
-    success $jq_url
+    if [ -n "${jq_url}" ]; then
+        debug "Using jq download URL: ${jq_url}"
+    fi
     if [ -z "${jq_url}" ]; then
         # System jq is available
         CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
