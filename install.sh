@@ -16,7 +16,7 @@ eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
 eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL}
-eval TOKEN=\${${PREFIX}_GITHUB_TOKEN}
+eval TOKEN=\${${PREFIX}_GITHUB_TOKEN:-\${GITHUB_TOKEN}}
 
 # Output formatting
 format_message() {
@@ -93,7 +93,7 @@ options() {
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-t" "${PREFIX}_GITHUB_TOKEN" "" "GitHub token for API calls"
+        "-t" "${PREFIX}_GITHUB_TOKEN" "${GITHUB_TOKEN} "GitHub token for API calls"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
@@ -158,7 +158,7 @@ print_error() {
     warning "   - Is the tool name '${TOOL}' correct?"
     warning "   - Does it have a release?"
     warning "   - Is the version '${VERSION}' correct?"
-    warning "   - Perhaps you reached the GitHub API rate limit? Try setting ${PREFIX}_GITHUB_TOKEN."
+    warning "   - Perhaps you reached the GitHub API rate limit? Try setting ${PREFIX}_GITHUB_TOKEN or ${GITHUB_TOKEN}"
     warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
 
     exit 1
