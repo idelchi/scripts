@@ -157,7 +157,7 @@ get_jq() {
 print_error() {
     warning "   - Is the tool name '${TOOL}' correct?"
     warning "   - Does it have a release?"
-    warning "   - Is the version '${VERSION}' correct?"
+    warning "   - Is the version '${VERSION}' correct? ('null' might indicate that the API call failed due to below)"
     warning "   - Perhaps you reached the GitHub API rate limit? Try setting ${PREFIX}_GITHUB_TOKEN or GITHUB_TOKEN"
     warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
 
