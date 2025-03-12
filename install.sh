@@ -93,7 +93,7 @@ options() {
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-k" "${PREFIX}_DISABLE_SSL" "false" "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-t" "${PREFIX}_GITHUB_TOKEN" "${GITHUB_TOKEN}" "GitHub token for API calls"
+        "-t" "${PREFIX}_GITHUB_TOKEN" "Value of GITHUB_TOKEN" "GitHub token for API calls"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
