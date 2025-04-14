@@ -103,7 +103,7 @@ Flags take precedence over environment variables when both are set.
 
 Example:
 
-    ${PREFIX}_VERSION="v1.0" ./install.sh -o /usr/local/bin
+    ${PREFIX}_VERSION="v0.0.1" ./install.sh -o /usr/local/bin
 
 Set \`-a\` or \`${PREFIX}_ARCH\` to download a specific architecture binary.
 This can be useful for edge-cases such as running a 32-bit userland on a 64-bit system.
