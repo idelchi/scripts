@@ -240,8 +240,10 @@ verify_platform() {
 
 # Parse arguments
 parse_args() {
+    SHOW_HELP=false
+
     # First pass: parse everything except help
-    while getopts ":b:v:d:a:t:o:xnkhp" opt; do
+    while getopts ":b:v:d:a:t:o:xnkh" opt; do
         case "${opt}" in
             v) VERSION="${OPTARG}" ;;
             d) OUTPUT_DIR="${OPTARG}" ;;
@@ -250,22 +252,15 @@ parse_args() {
             x) DEBUG=true ;;
             n) DRY_RUN=true ;;
             k) DISABLE_SSL=true ;;
-            p) options; exit 0 ;;
-            h) ;; # Skip help on first pass
+            h) SHOW_HELP=true ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
             *) warning "Invalid option: -${OPTARG}"; usage ;;
         esac
     done
 
-    # Reset OPTIND for second pass
-    OPTIND=1
-
-    # Second pass: only handle help
-    while getopts ":h" opt; do
-        case "${opt}" in
-            h) usage ;;
-        esac
-    done
+    if [ "${SHOW_HELP}" = true ]; then
+        usage
+    fi
 }
 
 check_url() {
