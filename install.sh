@@ -4,19 +4,18 @@ set -e
 # Arguments passed by calling script
 TOOL=${INSTALLER_TOOL:-"example"}
 OWNER=${INSTALLER_OWNER:-"idelchi"}
-VERSION=${INSTALLER_VERSION}
 PREFIX=$(printf "%s" "${TOOL}" | tr 'a-z' 'A-Z' | tr -c 'A-Z' '_')
 
 BINARY=${TOOL}
 
 # Allow setting via environment variables, will be overridden by flags
-eval VERSION=\${${PREFIX}_VERSION:-\"${VERSION}\"}
+eval VERSION=\${${PREFIX}_VERSION}
 eval OUTPUT_DIR=\${${PREFIX}_OUTPUT_DIR:-\"./bin\"}
-eval DEBUG=\${${PREFIX}_DEBUG:-0}
-eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
+eval DEBUG=\${${PREFIX}_DEBUG:-false}
+eval DRY_RUN=\${${PREFIX}_DRY_RUN:-false}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
-eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-\${DISABLE_SSL}}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-false}
 
 # Output formatting
 format_message() {
@@ -38,7 +37,7 @@ format_message() {
 }
 
 debug() {
-    if [ "${DEBUG}" -eq 1 ]; then
+    if [ "${DEBUG}" = "true" ]; then
         format_message "yellow" "$*" "DEBUG: "
     fi
 }
@@ -72,24 +71,24 @@ options() {
 
     # Print header with printf
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "Flag" "Env" "Default" "Description"
+        "Flag" "Env" "Value" "Description"
     printf "%s\n" "-----------------------------------------------------------------------------------------------------"
 
     # Print each row with printf
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-d" "${PREFIX}_OUTPUT_DIR" "\"${OUTPUT_DIR}\"" "Output directory"
+        "-d" "${PREFIX}_OUTPUT_DIR" ${OUTPUT_DIR} "Output directory"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-v" "${PREFIX}_VERSION" "<detected>" "Version to install"
+        "-v" "${PREFIX}_VERSION" ${VERSION:-detected} "Version to install"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-o" "${PREFIX}_OS" "<detected>" "Operating system"
+        "-o" "${PREFIX}_OS" ${OS:-detected} "Operating system"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-a" "${PREFIX}_ARCH" "<detected>" "Architecture"
+        "-a" "${PREFIX}_ARCH" ${ARCH:-detected} "Architecture"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-x" "${PREFIX}_DEBUG" "false" "Enable debug output"
+        "-x" "${PREFIX}_DEBUG" ${DEBUG} "Enable debug output"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-n" "${PREFIX}_DRY_RUN" "false" "Dry run mode"
+        "-n" "${PREFIX}_DRY_RUN" ${DRY_RUN} "Dry run mode"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-k" "${PREFIX}_DISABLE_SSL" "\${DISABLE_SSL}" "Disable SSL certificate verification"
+        "-k" "${PREFIX}_DISABLE_SSL" ${DISABLE_SSL} "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
@@ -247,9 +246,9 @@ parse_args() {
             d) OUTPUT_DIR="${OPTARG}" ;;
             a) ARCH="${OPTARG}" ;;
             o) OS="${OPTARG}" ;;
-            x) DEBUG=1 ;;
-            n) DRY_RUN=1 ;;
-            k) DISABLE_SSL=1 ;;
+            x) DEBUG=true ;;
+            n) DRY_RUN=true ;;
+            k) DISABLE_SSL=true ;;
             p) options; exit 0 ;;
             h) usage ;;
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
@@ -260,7 +259,7 @@ parse_args() {
 
 check_url() {
     local url="${1}"
-    if curl -I --silent -f "${URL}" > /dev/null; then
+    if curl -I --silent -f "${url}" > /dev/null; then
         debug "URL '${url}' is reachable"
     else
         warning "URL '${url}' is not reachable"
@@ -287,7 +286,7 @@ install() {
 
     debug "Starting download process..."
 
-    if [ "${DRY_RUN}" -eq 1 ]; then
+    if [ "${DRY_RUN}" = "true" ]; then
         info "Would download from: '${URL}'"
         info "Would install to: '${OUTPUT_DIR}'"
         exit 0
