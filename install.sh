@@ -4,19 +4,18 @@ set -e
 # Arguments passed by calling script
 TOOL=${INSTALLER_TOOL:-"example"}
 OWNER=${INSTALLER_OWNER:-"idelchi"}
-VERSION=${INSTALLER_VERSION}
 PREFIX=$(printf "%s" "${TOOL}" | tr 'a-z' 'A-Z' | tr -c 'A-Z' '_')
 
+BINARY=${TOOL}
+
 # Allow setting via environment variables, will be overridden by flags
-eval BINARY=\${${PREFIX}_BINARY:-\"${TOOL}\"}
-eval VERSION=\${${PREFIX}_VERSION:-\"${VERSION}\"}
+eval VERSION=\${${PREFIX}_VERSION}
 eval OUTPUT_DIR=\${${PREFIX}_OUTPUT_DIR:-\"./bin\"}
-eval DEBUG=\${${PREFIX}_DEBUG:-0}
-eval DRY_RUN=\${${PREFIX}_DRY_RUN:-0}
+eval DEBUG=\${${PREFIX}_DEBUG:-false}
+eval DRY_RUN=\${${PREFIX}_DRY_RUN:-false}
 eval ARCH=\${${PREFIX}_ARCH}
 eval OS=\${${PREFIX}_OS}
-eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-\${DISABLE_SSL}}
-eval TOKEN=\${${PREFIX}_GITHUB_TOKEN:-\${GITHUB_TOKEN}}
+eval DISABLE_SSL=\${${PREFIX}_DISABLE_SSL:-false}
 
 # Output formatting
 format_message() {
@@ -38,7 +37,7 @@ format_message() {
 }
 
 debug() {
-    if [ "${DEBUG}" -eq 1 ]; then
+    if [ "${DEBUG}" = "true" ]; then
         format_message "yellow" "$*" "DEBUG: "
     fi
 }
@@ -72,28 +71,24 @@ options() {
 
     # Print header with printf
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "Flag" "Env" "Default" "Description"
+        "Flag" "Env" "Value" "Description"
     printf "%s\n" "-----------------------------------------------------------------------------------------------------"
 
     # Print each row with printf
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-b" "${PREFIX}_BINARY" "\"${BINARY}\"" "Binary name to install"
+        "-d" "${PREFIX}_OUTPUT_DIR" ${OUTPUT_DIR} "Output directory"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-d" "${PREFIX}_OUTPUT_DIR" "\"${OUTPUT_DIR}\"" "Output directory"
+        "-v" "${PREFIX}_VERSION" ${VERSION:-detected} "Version to install"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-v" "${PREFIX}_VERSION" "<detected>" "Version to install"
+        "-o" "${PREFIX}_OS" ${OS:-detected} "Operating system"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-o" "${PREFIX}_OS" "<detected>" "Operating system"
+        "-a" "${PREFIX}_ARCH" ${ARCH:-detected} "Architecture"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-a" "${PREFIX}_ARCH" "<detected>" "Architecture"
+        "-x" "${PREFIX}_DEBUG" ${DEBUG} "Enable debug output"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-x" "${PREFIX}_DEBUG" "false" "Enable debug output"
+        "-n" "${PREFIX}_DRY_RUN" ${DRY_RUN} "Dry run mode"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-n" "${PREFIX}_DRY_RUN" "false" "Dry run mode"
-    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-k" "${PREFIX}_DISABLE_SSL" "\${DISABLE_SSL}" "Disable SSL certificate verification"
-    printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
-        "-t" "${PREFIX}_GITHUB_TOKEN" "\${GITHUB_TOKEN}" "GitHub token for API calls"
+        "-k" "${PREFIX}_DISABLE_SSL" ${DISABLE_SSL} "Disable SSL certificate verification"
     printf "%-${flag_width}s %-${env_width}s %-${default_width}s %s\n" \
         "-h" "" "false" "Show this help message"
 
@@ -108,8 +103,7 @@ Example:
 Set \`-a\` or \`${PREFIX}_ARCH\` to download a specific architecture binary.
 This can be useful for edge-cases such as running a 32-bit userland on a 64-bit system.
 
-Version will be retrieved from the latest release if not specified. This requires 'jq' to be installed.
-If not available, 'jq' will be downloaded for the current OS and architecture and removed after use.
+Version will be retrieved from the latest release if not specified.
 EOF
 }
 
@@ -124,41 +118,10 @@ options
 exit 1
 }
 
-# Download and setup JQ binary if not installed
-get_jq() {
-    if command -v "jq" >/dev/null 2>&1; then
-        return 0
-    fi
-
-    JQ_VERSION="1.7.1"
-
-    JQ_OS="${OS}"
-    JQ_ARCH="${ARCH}"
-    JQ_EXTENSION=""
-
-    # Set JQ_ARCH based on ARCH
-    case "${ARCH}" in
-        armv*) JQ_ARCH="armhf" ;;
-    esac
-
-    # Set extension for Windows
-    case "${OS}" in
-        windows) JQ_EXTENSION=".exe" ;;
-    esac
-
-    # Set name for darwin
-    case "${OS}" in
-        darwin) JQ_OS="macos" ;;
-    esac
-
-    echo "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-${JQ_OS}-${JQ_ARCH}${JQ_EXTENSION}"
-}
-
 print_error() {
     warning "   - Is the tool name '${TOOL}' correct?"
     warning "   - Does it have a release?"
-    warning "   - Is the version '${VERSION}' correct? 'null' might indicate that the API call failed due to below"
-    warning "   - Perhaps you reached the GitHub API rate limit? Try setting ${PREFIX}_GITHUB_TOKEN or GITHUB_TOKEN"
+    warning "   - Is the version '${VERSION}' correct?"
     warning "Check at 'https://github.com/${OWNER}/${TOOL}/releases'"
 
     exit 1
@@ -166,48 +129,21 @@ print_error() {
 
 # Get the latest release tag
 get_latest_release() {
-    local jq_url
-    local tmp
+    local json
 
-    jq_url=$(get_jq)
+    debug "Getting latest release from GitHub web interface"
 
-    # Check if TOKEN is set. If so, add CURL_ARGS=--header "Authorization: Bearer ${TOKEN}"
-    CURL_ARGS=""
-    if [ -n "${TOKEN}" ]; then
-        CURL_ARGS="-H 'Authorization: Bearer ${TOKEN}'"
-    fi
+    json=$(curl -L ${DISABLE_SSL:+-k} -s -H "Accept:application/json" "https://github.com/${OWNER}/${TOOL}/releases/latest")
 
-    if [ -n "${jq_url}" ]; then
-        debug "Using jq download URL: ${jq_url}"
-    fi
-    if [ -z "${jq_url}" ]; then
-        # System jq is available
-        CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
-        VERSION=$(eval "${CURL_CMD}" | jq -r '.tag_name')
-    else
-        warning "Required command 'jq' not found, downloading it from '${jq_url}'"
-        # Need to download jq
-        tmp=$(mktemp -d)
-        trap 'rm -rf "${tmp}"' EXIT
-
-        code=$(curl ${DISABLE_SSL:+-k} -s -w '%{http_code}' -L -o "${tmp}/jq" "${jq_url}")
-
-        if [ "${code}" != "200" ]; then
-            warning "Failed to download '${jq_url}': ${code}"
-            warning "Either pass the desired version manually with '-v' or install jq manually"
-            rm -rf "${tmp}"
-
-            exit 1
-        fi
-        chmod +x "${tmp}/jq"
-        CURL_CMD="curl ${DISABLE_SSL:+-k} ${CURL_ARGS} -s --location 'https://api.github.com/repos/${OWNER}/${TOOL}/releases/latest'"
-        VERSION=$(eval "${CURL_CMD}" | "${tmp}/jq" -r '.tag_name')
-        rm -rf "${tmp}"
-    fi
-
-    # Check ${VERSION} for null
-    if [ "${VERSION}" = "null" ]; then
+    if [ -z "${json}" ]; then
         warning "Failed to get latest version for '${TOOL}'"
+        print_error
+    fi
+
+    VERSION=$(echo "${json}" | sed 's/.*"tag_name":"//' | sed 's/".*//')
+
+    if [ -z "${VERSION}" ] || [ "${VERSION}" = "null" ]; then
+        warning "Failed to parse version from response for '${TOOL}'"
         print_error
     fi
 
@@ -304,28 +240,37 @@ verify_platform() {
 
 # Parse arguments
 parse_args() {
+    # First pass: parse everything except help
     while getopts ":b:v:d:a:t:o:xnkhp" opt; do
         case "${opt}" in
-            b) BINARY="${OPTARG}" ;;
             v) VERSION="${OPTARG}" ;;
             d) OUTPUT_DIR="${OPTARG}" ;;
             a) ARCH="${OPTARG}" ;;
             o) OS="${OPTARG}" ;;
-            x) DEBUG=1 ;;
-            n) DRY_RUN=1 ;;
-            k) DISABLE_SSL=1 ;;
-            t) TOKEN="${OPTARG}" ;;
+            x) DEBUG=true ;;
+            n) DRY_RUN=true ;;
+            k) DISABLE_SSL=true ;;
             p) options; exit 0 ;;
-            h) usage ;;
+            h) ;; # Skip help on first pass
             :) warning "Option -${OPTARG} requires an argument"; usage ;;
             *) warning "Invalid option: -${OPTARG}"; usage ;;
+        esac
+    done
+
+    # Reset OPTIND for second pass
+    OPTIND=1
+
+    # Second pass: only handle help
+    while getopts ":h" opt; do
+        case "${opt}" in
+            h) usage ;;
         esac
     done
 }
 
 check_url() {
     local url="${1}"
-    if curl -I --silent -f "${URL}" > /dev/null; then
+    if curl -I --silent -f "${url}" > /dev/null; then
         debug "URL '${url}' is reachable"
     else
         warning "URL '${url}' is not reachable"
@@ -352,7 +297,7 @@ install() {
 
     debug "Starting download process..."
 
-    if [ "${DRY_RUN}" -eq 1 ]; then
+    if [ "${DRY_RUN}" = "true" ]; then
         info "Would download from: '${URL}'"
         info "Would install to: '${OUTPUT_DIR}'"
         exit 0
